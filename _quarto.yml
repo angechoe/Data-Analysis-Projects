@@ -8,7 +8,7 @@ website:
     Course Projects for STA 9750 at Baruch College
   site-url: "https://angechoe.github.io/Data-Analysis-Projects/"
   navbar:
-    background: primary
+    background: success
     search: false
     right:
       - text: "Home"
@@ -24,7 +24,7 @@ website:
     
 format:
   html:
-    theme: zephyr
+    theme: litera
     toc: false
 
 editor:
