@@ -1,22 +1,52 @@
 ---
-title: Netflix Top 10 Analysis
+title: "Netflix Top 10 Analysis (Local)"
 format: 
   html:
     theme: simplex
+    include-in-header:
+      text: |
+        <style>
+        h3 {
+          color: #376ccb;
+        }
+        </style>
     toc: true
     toc-location: right
-    toc-depth: 3
+    toc-depth: 5
     code-fold: true
 ---
 
-[insert intro about netflix]
+# Executive Summary
 
-[introduce the data]
-something about netflix shares weekly top 10 information about their tc shows and movies on the tudum website. For this analysis, we will be using [insert wee]
+Leveraging R and Quarto, this project dives deep into Netflix’s Global Top 10 data to decode the strategies behind the platform's most successful programming. By analyzing massive hits like the Stranger Things franchise, the breakout success of K-Pop: Demon Hunters, and the sustained growth of Korean TV, I explore how release timing, regional demand, and franchise 'halo effects' drive global viewership. This analysis moves beyond surface-level rankings to uncover the data-driven trends that define modern streaming success.
+
+# Netflix Data
+::: {.callout-note}
+## Datasets
+
+For this project, I will be using two datasets from Netflix's [Tudum Website](https://www.netflix.com/tudum/top10) :
+
+1. The **Global Top 10**
+2. The **Country Top 10**
+
+Both data sets are updated on a weekly basis and categorizes programming into four categories:
+
+- TV (English)
+- TV (Non-English)
+- Flims (English)
+- Films (Non-English)
+
+:::
 
 ## Importing Data
-The following code only downloads the data from Tudum only if it does not exist locally and stores it in the instructed folder. 
+The following code executes only if they do not exist locally: 
+
+- creates a directory for data.
+- downloads the data. 
+
 ```{r}
+#| code-fold: false
+
 if(!dir.exists(file.path("data", "mp01"))){
   dir.create(file.path("data", "mp01"), showWarnings=FALSE, recursive=TRUE)
 }
@@ -34,17 +64,17 @@ if(!file.exists(COUNTRY_TOP_10_FILENAME)){
   download.file("https://www.netflix.com/tudum/top10/data/all-weeks-countries.tsv", 
                 destfile=COUNTRY_TOP_10_FILENAME)}
 ```
-Awesome! The data is now ready. Let's clean it up before starting the analysis. 
 
-## Data Cleaning
+## Data Preparation
 
 ### Function Creation
-Here I set up two functions: 
 
-1. Library Function- this allows me to call for a package without having to install each one separately. 
-2. Format Function- This cleans up column names for my data tables. 
+- <u>Library Function</u> - Calls for a package without having to install each one separately. 
+- <u>Format Function</u> - Cleans up column names for data tables. 
 ```{r}
 #| message: false
+#| code-fold: false
+
 # installing packages function!
 library <- function(pkg){
     pkg <- as.character(substitute(pkg))
@@ -54,9 +84,7 @@ library <- function(pkg){
 }
 
 library(tidyverse)
-library(readr)
 library(DT)
-library(stringr)
 
 # Column name formatting function for datatables
 format_titles <- function(df){
@@ -64,7 +92,7 @@ format_titles <- function(df){
   df}
 ```
 
-### Inital look at untouched Top 10 Global data 
+### Raw Data
 ```{r}
 #| message: false
 #reading the files
@@ -76,33 +104,505 @@ GLOBAL_TOP_10 |>
   datatable(options=list(searching=FALSE, info=FALSE))
 ```
 
-I'm replacing the `N/A` string values in the `season_title` into actual `NA` values. 
+### Data Cleaning
+The data is already in great shape, but I will make small but important edits for more impactful analysis.
+
+- replacing the `N/A` string values in the `season_title` into actual `NA` values. 
+- Using the `format_titles` function created earlier, to capitalize column names and remove the underscores. Adding commas to the numerical values for a better reading experience. 
 ```{r}
 GLOBAL_TOP_10 <- GLOBAL_TOP_10 |>
-  mutate(season_title = if_else(season_title == 'N/A', NA_character_, season_title))
-```
+  mutate(season_title = if_else(season_title == 'N/A', NA_character_, season_title),
+         year = year(week))
 
-Using the `format_titles` function created earlier, the column names are capitalized and the underscores are removed. The numerical values are rounded and separated with commas for a smoother reading experience. 
-```{r}
 GLOBAL_TOP_10 |> 
-  mutate(`runtime_(minutes)` = round(60 * runtime)) |>
-  select(-season_title, -runtime) |>
+  select(-season_title) |>
   format_titles() |>
   head(n=20) |>
   datatable(options=list(searching=FALSE, info=FALSE)) |>
-  formatRound(c('Weekly Hours Viewed', 'Weekly Views'), digits = 0)
+  formatRound(c('Weekly Hours Viewed', 'Weekly Views'), digits = 0) |>
+  formatRound('Runtime', digits = 3)
 ```
 
-## EDA: Country Top 10 
-[insert statement how netflix is a global media and entertainment powerhouse. lets explore the global reach]
+# Exploratory Analysis
+Let's run some general analysis using the two datasets. 
 
+### Top 10 Titles with the Highest International Reach
+```{r}
+#number of countries 
+country_count <- COUNTRY_TOP_10 |>
+  summarise(country_count = n_distinct(country_name))
 
+# Programs charting in the most countries 
+top_programming <- COUNTRY_TOP_10 |>
+  group_by(show_title) |>
+  summarise(
+    country_count = n_distinct(country_name),
+    total_appearances = n()
+  ) |>
+  arrange(desc(total_appearances)) |>
+  slice_max(country_count, n = 30, with_ties = FALSE)
 
-## EDA: Global Top 10 
+top_programming |>
+  format_titles() |>
+  datatable(options=list(searching=FALSE, info=FALSE)) |>
+  formatRound('Total Appearances', digit = 0)
 
-## Christmas Movies Analysis 
+# Russia 
 
-## Korean Drama Analysis 
+# Finding the country that no longer streams Netflix Content
+dropped_country <- COUNTRY_TOP_10 |>
+  group_by(country_name)|>
+  summarise(total_weeks = n_distinct(week))|>
+  slice_min(total_weeks, n=1)
 
-## Kpop Demon Hunters Success Analysis 
+russia <- dropped_country$country_name 
+russia_weeks <- dropped_country$total_weeks 
+
+russia_week <- COUNTRY_TOP_10 |>
+  filter(country_name == "Russia") |>
+  summarise(last_week = max(week)) |>
+  pull(last_week) |>
+  format("%B %Y")
+
+```
+Many of the leading programs reached the charts in all [**`r country_count`**]{style="color: #417FEF;"} countries that Netflix operates in, suggesting that there is consistent viewing trends across many countries. 
+
+Interestingly, there are titles that have topped in 93 countries, but have a significantly higher `total appearance`. Looking deeper, this is because Netflix only operated in [**`r russia`**]{style="color: #417FEF;"} for [**`r russia_weeks`**]{style="color: #417FEF;"} weeks with the last week being in [**`r russia_week`**]{style="color: #417FEF;"}.
+
+### Programming Count by Category
+
+```{r}
+# Start of data 
+data_start <- GLOBAL_TOP_10 |>
+  summarise(start = min(week))|>
+  pull(start) |>
+  format("%B %Y")
+
+# Week that runtime and weekly views start
+runtime_start <- GLOBAL_TOP_10 |>
+  filter(!is.na(runtime))|>
+  summarise(new_data = min(week))|>
+  pull(new_data) |>
+  format("%B %Y")
+
+# category division
+category_count <- GLOBAL_TOP_10 |> 
+  group_by(category) |>
+  summarise(category_count = n_distinct(show_title))
+
+library(knitr)
+
+category_count |>
+  format_titles() |>
+  kable()
+
+total_program_count <- 987 + 999 + 554 + 583
+```
+Netflix programming is constantly changing based on demand, new content, and seasonality. Based on the data from the past 5 years, Netflix streamed over [**`r total_program_count`**]{style="color: #417FEF;"} distinct titles! 
+
+### Missing Data 
+
+Although the data set begins in [**`r data_start`**]{style="color: #417FEF;"}, metrics for `runtime` and `weekly_views` begin in [**`r runtime_start`**]{style="color: #417FEF;"}. While this creates a data gap for earlier periods, particularly for multi-season TV shows, this analysis utilizes the `weekly_hours_viewed` metric when needed.
+
+Awesome, now that we have a better understanding of the data, lets look into specific successful programming!
+
+### Top 10 Longest-Running Titles in the Global Top 10 Chart by Category
+```{r}
+#| message: false
+#| warning: false
+
+# Finding the top top titles for each category
+all_top <- GLOBAL_TOP_10 |>
+  group_by(category, show_title) |>
+  summarise(
+    total_weeks_in_top10 = max(cumulative_weeks_in_top_10, na.rm = TRUE), 
+    .groups = "drop"
+  ) |>
+  group_by(category) |>
+  slice_max(total_weeks_in_top10, n = 10, with_ties = FALSE) |>
+  ungroup()
+
+library(plotly)
+
+# 2. Initialize Plotly object
+categories <- unique(all_top$category)
+fig <- plot_ly()
+
+# 3. Streamlined Trace Creation
+for (i in seq_along(categories)) {
+  cat_name <- categories[i]
+  
+  df_plot <- all_top |> 
+    filter(category == cat_name) |>
+    mutate(show_title = reorder(show_title, -total_weeks_in_top10))
+  
+  fig <- fig |> add_trace(
+    x = df_plot$total_weeks_in_top10,
+    y = df_plot$show_title,
+    type = "bar",
+    orientation = "h",
+    name = cat_name,
+    visible = (i == 1) # Only the first category is visible by default
+  )
+}
+
+# 4. Optimized Buttons
+buttons <- lapply(seq_along(categories), function(i) {
+  this_cat <- categories[i]
+  
+  # Visibility vector: TRUE for current index, FALSE for others
+  vis_vec <- rep(FALSE, length(categories))
+  vis_vec[i] <- TRUE
+  
+  list(
+    method = "update",
+    args = list(
+      list(visible = vis_vec),
+      list(yaxis = list(title = "<b>Show Title</b>"))
+    ),
+    label = this_cat
+  )
+})
+
+# 5. Final Layout
+fig <- fig |>
+  layout(
+    title = list(text = "<b>Top 10 Longest-Running Programming by Category</b>"),
+    xaxis = list(title = list(text = "<b>Total Weeks in Top 10</b>")),
+    yaxis = list(
+      title = list(text = "<b>Show Title</b>", standoff = 40),
+      automargin = TRUE # Helps prevent long titles from being cut off
+    ),
+    margin = list(l = 250), # Increased margin for your rotated/offset title
+    updatemenus = list(
+      list(
+        active = 0,
+        buttons = buttons,
+        x = -0.4,
+        y = 1.1, # Moved up slightly to clear the axis title
+        xanchor = "right",
+        yanchor = "top"
+      )
+    )
+  )
+
+fig
+```
+
+<br>
+
+Stranger Things dominates English TV with the longest charting streak for a single season. Let’s dive into the viewership data behind this run.
+
+# I. Stranger Things Analysis
+
+### Stranger Things Viewership by Season
+
+```{r}
+#| message: false
+# creating Stranger things data frame 
+STRANGER_THINGS <- GLOBAL_TOP_10 |>
+  filter(show_title == 'Stranger Things') |>
+  mutate(season_title = if_else(is.na(season_title), 'Season 1', season_title)) |>
+  mutate(season_title = str_replace(season_title, "Stranger Things", "Season")) |>
+  select(-category)
+
+# calculating total hours viewed per season.
+
+library(scales)
+
+st_views <- STRANGER_THINGS |>
+  group_by(season_title) |>
+  summarise(total_hours_view = sum(weekly_hours_viewed),
+            runtime = first(runtime))|>
+  mutate(total_viewed = total_hours_view/runtime,
+         total_hours_viewed = label_number(accuracy = 0.1, scale_cut = cut_short_scale())(total_hours_view),
+         total_views = label_number(accuracy = 0.1, scale_cut = cut_short_scale())(total_viewed)) |>
+  select(season_title, total_hours_viewed, runtime, total_views) 
+
+st_views |>
+  rename(`Runtime(hrs)` = runtime) |>
+  format_titles() |>
+  datatable(options=list(dom = 't'),
+            rownames = FALSE) |>
+  formatRound('Runtime(Hrs)', digits = 2)
+
+```
+While the first three seasons accumulated relatively consistent viewership, [**season 4**]{style="color: #417FEF;"} garnered almost [**four times**]{style="color: #417FEF;"} the `total hours viewed` of season 3. 
+
+Because the earlier seasons premiered before 2023, I calculated a `Total Views` column by  by dividing the `total hours viewed` by `runtime` to normalize the data.
+This analysis confirms that even when accounting for Season 4’s longer `runtime`, the show still attracted a significantly larger audience than previous seasons, proving its growth was driven by increased popularity rather than just longer episodes.
+
+### Number of weeks each season spent in the Global Top 10
+
+```{r}
+ST_weekinchart <- STRANGER_THINGS |>
+  group_by(season_title) |>
+  summarise(weeks_in_top_10 = max(cumulative_weeks_in_top_10))
+
+ST_weekinchart |>
+  format_titles() |>
+  datatable(options=list(dom = 't'), rownames = FALSE)
+
+ST_totalweekinchart <- sum(ST_weekinchart$weeks_in_top_10)
+```
+
+With [**`r ST_totalweekinchart `**]{style="color: #417FEF;"} weeks on the Global Top 10, Stranger Things stands as the longest-charting English TV show in Netflix history. This longevity may be partially explained by the recent trend of splitting seasons into multiple parts; Season 4 was the first Stranger Things season to adopt this "multi-part" release and subsequently saw a massive spike in weeks charted. However, Season 5 seems to disprove this release strategy as a guaranteed success factor. Despite being released in three parts, it has actually spent the fewest weeks in the Top 10 of any season so far, suggesting that release timing or audience fatigue may play a larger role than part-splitting alone.
+
+### Comparing Season 4 and Season 5 Weekly Views 
+
+```{r}
+#| message: false
+# S4 and S5 release dates
+ST_release_schedule <- data.frame(
+  season = c('S4 Pt.1','S4 Pt.2','S5 Pt.1', 'S5 Pt.2', 'S5 Pt.3'),
+  release_date = as.Date(c('2022-05-27', '2022-07-01','2025-11-26', '2025-12-25', '2025-12-31'))
+) %>%
+  mutate(period = ifelse(year(release_date) == 2022, "Season 4 Release", "Season 5 Release"))
+
+library(scales)
+  
+# creating two time p
+st_plot <- STRANGER_THINGS %>%
+  mutate(period = case_when(
+    week < as.Date("2024-01-01") ~ "Season 4 Release",
+    week >= as.Date("2024-01-01") ~ "Season 5 Release",
+    TRUE ~ "Other"
+  ))
+
+st_plot |>
+  ggplot(aes(x = week, y = weekly_hours_viewed, color = season_title)) +
+  geom_vline(data = ST_release_schedule, 
+             aes(xintercept = release_date), 
+             linetype = "dashed", color = "darkgrey", alpha = 0.8) +
+  geom_text(data = ST_release_schedule, 
+            aes(x = release_date, y = Inf, label = season), 
+            angle = 90, vjust = 1.5, hjust = 3.1, size = 3, color = "black", inherit.aes = FALSE) +
+  geom_point(size = 3, alpha = 0.8) + 
+  facet_grid(. ~ period, scales = "free_x", space = "free_x") +
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "2 months") +
+  scale_color_brewer(palette = "Set1") +
+  labs(
+    title = "Stranger Things: Weekly Views Comparison",
+    subtitle = "Dashed lines indicate new episode release dates",
+    x = "Date",
+    y = "Weekly Hours Viewed",
+    color = "Season"
+  ) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    strip.background = element_rect(fill = "grey90"),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold")
+  )
+
+st_s4_new_views <- STRANGER_THINGS |>
+  filter(season_title == "Season 4") |>
+  filter(week > 2025-11-23) |>
+  summarise(total_recent = sum(weekly_hours_viewed)) |>
+  mutate(
+    total_formatted = label_number(
+      scale = 1e-9,       # Divide by 1,000,000,000
+      suffix = " Billion", 
+      accuracy = 0.2       # One decimal place
+    )(total_recent)
+  ) |>
+  pull(total_formatted)
+  
+```
+While viewership peaks are expected during new episode releases, this plot reveals a more compelling trend: the significant surge in viewership for previous seasons. With Season 5 arriving three years after its last, the data shows that Season 4 garnered an additional [**`r st_s4_new_views`**]{style="color: #417FEF;"} hours viewed during the Season 5 release window. 
+
+Based on this, I would recommend that programming teams aggressively cross-promote previous seasons—particularly the most recent—at least one month prior to a new premiere. Netflix already leverages this "powerhouse" strategy by headlining franchises on the homepage and utilizing "New Season Coming Soon" banners to prime the audience for a full-series rewatch.
+
+# II. Korean Drama Analysis 
+With Squid Games being one of the top performing TV shows, lets take a look at how other Korean TV Programming performed. 
+
+### Longest Running Programs in Korea from 2025
+
+```{r}
+# creating Korean programming dataframe
+korea <- COUNTRY_TOP_10 |>
+  filter(country_name == "South Korea",
+         category == 'TV') |>
+  select(-country_iso2, -category)
+
+# Programming spent the longest time in the Top 10 in 2025
+korea |>
+  mutate(year = year(week)) |>
+  filter(year == 2025) |>
+  group_by(show_title) |>
+  summarise(week_count = n()) |>
+  arrange(desc(week_count)) |>
+  head(n=20) |>
+  format_titles() |> 
+  datatable(options = list(
+    searching = FALSE,    
+    info = FALSE,         
+    ordering = TRUE,      
+    lengthChange = FALSE))
+```
+Analysis of 2025 charting data reveals a high baseline for success in the Korean market. Every charting title maintained a Top 10 presence for a minimum of eight weeks, signaling a consistent viewership pattern. This suggests that Korean audiences prioritize multi-episode engagement over viral, short-lived hits. Transitioning to the global charts, I will now assess if these domestic programs can be used as a predictive indicator for international success.
+
+### Korean TV Programming Performance in Global Top 10
+
+```{r}
+# K-drama global performance
+
+k_drama <- c("Squid Game", "When Life Gives You Tangerines", 
+             "Weak Hero", "The Trauma Code: Heroes on Call", 
+             "Bon Appétit, Your Majesty", "Resident Playbook",
+             "The Haunted Palace", "Typhoon Family", "Beyond the Bar",
+             "Heavenly Ever After", "I am Solo", "Our Unwritten Seoul")
+
+k_global <- GLOBAL_TOP_10 |>
+  filter(show_title %in% k_drama) |>
+  filter(year == 2025) |>
+  group_by(show_title,season_title) |>
+  slice_max(cumulative_weeks_in_top_10, n=1) |>
+  arrange(desc(cumulative_weeks_in_top_10)) 
+
+# datatable 
+k_global |>
+  select(show_title, season_title, cumulative_weeks_in_top_10) |>
+  format_titles() |> 
+  datatable(options = list(
+    searching = FALSE,    
+    info = FALSE,         
+    ordering = TRUE,      
+    lengthChange = FALSE))
+```
+
+This 2025 data table indicates that domestic performance serves as a strong predictor for international success. For instance, titles like Squid Game, When Life Gives You Tangerines, and Bon Appétit, Your Majesty, all sustained 9+ weeks on both local and global charts, suggesting that top-tier Korean programming also possess global audience retention.
+
+### Popular Korean TV Shows View Over Time 
+
+```{r}
+# top performin korean tv shows
+k_drama <- c("Squid Game", "When Life Gives You Tangerines", 
+             "Weak Hero", "The Trauma Code: Heroes on Call", 
+             "Bon Appétit, Your Majesty", "Resident Playbook",
+             "The Haunted Palace", "Typhoon Family", "Beyond the Bar",
+             "Heavenly Ever After", "I am Solo", "Our Unwritten Seoul")
+
+k_global <- GLOBAL_TOP_10 |>
+  filter(show_title %in% k_drama) 
+
+k_global_top <- k_global|>
+  group_by(show_title,season_title) |>
+  slice_max(cumulative_weeks_in_top_10, n=1) |>
+  arrange(desc(cumulative_weeks_in_top_10)) 
+
+# line plot
+kdrama_top <- unique(k_global_top$show_title)
+
+kdrama_plot <- k_global |>
+  filter(show_title %in% kdrama_top,
+         year == 2025) |>
+  filter(!show_title == "Squid Game") |>
+  arrange(week) |>
+  group_by(show_title) |>
+  mutate(running_total = cumsum(weekly_views))|>
+  ungroup()
+
+kdrama_plot |> 
+  ggplot(aes(x = week, y = running_total, color = show_title)) +
+  geom_line(linewidth = .7) +
+  geom_point(size = 1.1) + 
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  labs(
+    title = "Growth of Total Views per K-Drama",
+    subtitle = "Cumulative views in 2025",
+    x = "Month",
+    y = "Total Cumulative Views",
+    color = "TV Title"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal",
+        legend.text = element_text(size = 6) ,
+        plot.title = element_text(face = "bold")
+  )
+```
+The cumulative data confirms the massive scale of 2025's Korean Dramas, with titles consistently surpassing the 20M to 40M view threshold. The steady growth curves reinforce that the Korean Top 10 represents a high-volume audience, where a 'hit' is defined by multi-million-user reach rather than just a brief viral moment.
+
+# III. Kpop Demon Hunters Success Analysis 
+We cannot talk about high preforming Netflix programming without showcasing the record breaking animated movie directed by Maggie Kang and Chris Appelhans.
+
+### Count of Ranking During Time on Top 10
+
+```{r}
+# total weeks in top 10
+kdh_total_weeks <- GLOBAL_TOP_10 |>
+  filter(show_title == 'KPop Demon Hunters') |>
+  summarise(total_weeks = max(cumulative_weeks_in_top_10)) |>
+  pull(total_weeks)
+
+# Total all time views for KDH
+kdh_total_views<- GLOBAL_TOP_10 |>
+  filter(show_title == 'KPop Demon Hunters') |>
+  summarise(total_views = sum(weekly_views))|>
+  mutate(
+    total_formatted = label_number(
+      scale = 1e-6,       # Divide by 1,000,000,000
+      suffix = " Million", # Add the word " billion"
+      accuracy = 0.2       # One decimal place
+    )(total_views)) |>
+  pull(total_formatted) 
+
+#count of rank in top 10
+GLOBAL_TOP_10|>
+  filter(show_title == 'KPop Demon Hunters')|>
+  group_by(weekly_rank) |>
+  summarise(rank_count = n_distinct(week)) |>
+  format_titles() |>
+  datatable(options=list(dom = 't'), rownames = FALSE)
+```
+
+### Total Views Over Time of Popular Charting Movies
+
+```{r}
+top_films <- GLOBAL_TOP_10 |>
+  filter(year == 2024 | year == 2025) |>
+  filter(category %in% c("Films (English)", "Films (Non-English)")) |>
+  group_by(show_title) |>
+  slice_max(cumulative_weeks_in_top_10, n = 1) |>
+  arrange(desc(cumulative_weeks_in_top_10)) |>
+  head(n=10) |>
+  pull(show_title)
+
+film_plot <- GLOBAL_TOP_10 |>
+  filter(show_title %in% top_films,
+         year == 2024 | year == 2025) |>
+  arrange(week) |>
+  group_by(show_title) |>
+  mutate(running_total = cumsum(weekly_views))|>
+  ungroup()
+          
+film_plot |> 
+  ggplot(aes(x = week, y = running_total, color = show_title)) +
+  geom_line(linewidth = .7) +
+  geom_point(size = 1.1) + 
+  scale_y_continuous(labels = label_number(scale_cut = cut_short_scale())) +
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months") +
+  labs(
+    title = "Growth of Total Views per Film",
+    subtitle = "Cumulative views over time (2024-2025)",
+    x = "Date",
+    y = "Total Cumulative Views",
+    color = "Film"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.box = "horizontal",
+        legend.text = element_text(size = 6) 
+  )
+```
+
+As shown in the Top 10 Longest Running Programming bar graph, the film charted for [**`r kdh_total_weeks`**]{style="color: #417FEF;"} weeks, nearly doubling the charting duration of major studio hits like The Boss Baby and The Super Mario Bros. Movie. Furthermore, the cumulative viewership data reveals an unprecedented scale of engagement, with the film amassing over [**500M**]{style="color: #417FEF;"} views, effectively quintupling the reach of its closest competitors in the 2024–2025 period.
+
+# Conclusion
+As the K-Pop Demon Hunters sing, Netflix is "going up up up" the charts. This analysis indicates that 2025 was a landmark year for the streaming platform, fueled by the massive return of series like Wednesday and Bridgerton, as well as the successful launch of the record-breaking K-Pop Demon Hunters. Ultimately, the data confirms that Netflix’s viewership continues to scale, effectively balancing franchise longevity with the success of new global releases.
 

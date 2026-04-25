@@ -16,10 +16,10 @@ website:
         menu:
           - text: "Netflix Analysis"
             href: r-projects/mp01.qmd
-      - text: "Python Projects"
-        menu:
-          - text: "Spotify Wrapped Decade Analysis "
-            href: python-projects/py01.qmd
+      #- text: "Python Projects"
+        #menu:
+          #- text: "Spotify Wrapped Decade Analysis "
+            #href: python-projects/py01.qmd
 
 format:
   html:
