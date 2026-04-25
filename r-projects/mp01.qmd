@@ -1,5 +1,5 @@
 ---
-title: "Netflix Top 10 Analysis (Local)"
+title: "Netflix Top 10 Analysis"
 format: 
   html:
     theme: simplex
@@ -601,7 +601,7 @@ film_plot |>
   )
 ```
 
-As shown in the Top 10 Longest Running Programming bar graph, the film charted for [**`r kdh_total_weeks`**]{style="color: #417FEF;"} weeks, nearly doubling the charting duration of major studio hits like The Boss Baby and The Super Mario Bros. Movie. Furthermore, the cumulative viewership data reveals an unprecedented scale of engagement, with the film amassing over [**500M**]{style="color: #417FEF;"} views, effectively quintupling the reach of its closest competitors in the 2024–2025 period.
+As shown in the Top 10 Longest Running Programming [bar graph](https://angechoe.github.io/Data-Analysis-Projects/r-projects/mp01.html#top-10-longest-running-titles-in-the-global-top-10-chart-by-category), the film charted for [**`r kdh_total_weeks`**]{style="color: #417FEF;"} weeks, nearly doubling the charting duration of major studio hits like The Boss Baby and The Super Mario Bros. Movie. Furthermore, the cumulative viewership data reveals an unprecedented scale of engagement, with the film amassing over [**500M**]{style="color: #417FEF;"} views, effectively quintupling the reach of its closest competitors in the 2024–2025 period.
 
 # Conclusion
 As the K-Pop Demon Hunters sing, Netflix is "going up up up" the charts. This analysis indicates that 2025 was a landmark year for the streaming platform, fueled by the massive return of series like Wednesday and Bridgerton, as well as the successful launch of the record-breaking K-Pop Demon Hunters. Ultimately, the data confirms that Netflix’s viewership continues to scale, effectively balancing franchise longevity with the success of new global releases.
